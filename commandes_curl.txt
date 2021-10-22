@@ -1,0 +1,38 @@
+Ce fichier contient les commandes Curl utilisés pour ce projet :
+
+# commande pour générer du texte à combiner dans l'image finale à l'aide du webservice "Chart API" fournie par google à l'aide d'une requête réalisée avec l'outil curl:
+# le symbole '|' permet de faire un retour à la ligne
+# l'image sera dans le fichier texte.png
+texte_ligne="Attestation de réussite|délivrée à P-F.B"
+
+curl -o texte.png "http://chart.apis.google.com/chart" --data-urlencode "chst=d_text_outline" --data-urlencode "chld=000000|56|h|FFFFFF|b|${texte_ligne}"
+
+# Les commandes de demande de timestamp :
+openssl ts -query -data attestation.png -no_nonce -sha512 -cert -out file.tsq
+curl -H 'Content-Type: application/timestamp-query' --data-binary '@file.tsq' https://freetsa.org/tsr
+
+# La commande dé vérification du timestamp :
+openssl ts -verify -in file.tsr -queryfile file.tsq -CAfile cacert.pem -untrusted tsa.crt
+
+# requetes client sans serveur frontal :
+# pour l'envoie des données de l'étudiant
+curl -X POST -d 'identite=toto' -d 'intitule_certif=SecuTIC' http://localhost:8080/creation
+
+# pour la requête de vérification et l'envoi de l'image
+curl -v -F image=@fond_attestation.png http://localhost:8080/verification
+
+# pour une requête récupérant en réponse une image
+curl -v -o mon_image.png http://localhost:8080/fond
+
+# Commande de lancement du serveur frontal :
+socat \openssl-listen:9000,fork,cert=bundle_serveur.pem,cafile=ecc.ca.cert.pem,verify=0 \tcp:127.0.0.1:8080
+
+# requetes client avec serveur frontal :
+# pour l'envoie des données de l'étudiant
+curl -v -X POST -d 'identite=toto' -d 'intitule_certif=SecuTIC' --cacert \ecc.ca.cert.pem https://localhost:9000/creation
+
+# pour la requête de vérification et l'envoi de l'image
+curl -v -F image=@"+fichier+" --cacert \ecc.serveur_frontal.pem https://localhost:9000/verification
+
+# pour une requête récupérant en réponse une image
+curl -v -o mon_image.png --cacert \ecc.serveur_frontal.pem https://localhost:9000/fond
